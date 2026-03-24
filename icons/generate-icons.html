@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head><title>Generar íconos</title></head>
+<body>
+<p>Haz clic en cada botón y guarda la imagen descargada en la carpeta icons/</p>
+<canvas id="c192" width="192" height="192"></canvas>
+<button onclick="download(192)">Descargar icon-192.png</button>
+<br><br>
+<canvas id="c512" width="512" height="512"></canvas>
+<button onclick="download(512)">Descargar icon-512.png</button>
+<script>
+function draw(size) {
+    const canvas = document.getElementById('c' + size);
+    const ctx = canvas.getContext('2d');
+    // Fondo
+    ctx.fillStyle = '#0d9488';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, size, size, size * 0.15);
+    ctx.fill();
+    // Letra T
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${size * 0.55}px -apple-system, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('T', size / 2, size / 2);
+    // Flechas pequeñas
+    ctx.font = `${size * 0.15}px sans-serif`;
+    ctx.fillText('↔', size / 2, size * 0.82);
+}
+function download(size) {
+    draw(size);
+    const canvas = document.getElementById('c' + size);
+    const a = document.createElement('a');
+    a.download = 'icon-' + size + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+}
+draw(192);
+draw(512);
+</script>
+</body>
+</html>
