@@ -318,11 +318,10 @@
         var rec = new SpeechRecognitionAPI();
         rec.lang = speechCode;
         rec.interimResults = true;
-        rec.continuous = true;
+        rec.continuous = false;
         rec.maxAlternatives = 1;
 
         var textBefore = inputText.value;
-        var finalTranscript = '';
 
         rec.onstart = function() {
             isRecording = true;
@@ -333,17 +332,12 @@
         };
 
         rec.onresult = function(event) {
-            var interim = '';
-            finalTranscript = '';
+            var transcript = '';
             for (var i = 0; i < event.results.length; i++) {
-                if (event.results[i].isFinal) {
-                    finalTranscript += event.results[i][0].transcript;
-                } else {
-                    interim += event.results[i][0].transcript;
-                }
+                transcript += event.results[i][0].transcript;
             }
-            interimText.textContent = finalTranscript + interim;
-            inputText.value = textBefore + finalTranscript + interim;
+            interimText.textContent = transcript;
+            inputText.value = textBefore + transcript;
             updateCharCount();
             autoResize();
         };
