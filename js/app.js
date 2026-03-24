@@ -1,14 +1,18 @@
 /**
- * Tradudtor - Lógica de UI
+ * Tradudtor - Lógica de UI principal
  */
 (function() {
     'use strict';
 
-    // Elementos del DOM
+    // DOM elements
     var inputText = document.getElementById('inputText');
     var outputText = document.getElementById('outputText');
-    var sourceLangBtn = document.getElementById('sourceLang');
-    var targetLangBtn = document.getElementById('targetLang');
+    var sourceLangBtn = document.getElementById('sourceLangBtn');
+    var targetLangBtn = document.getElementById('targetLangBtn');
+    var sourceLangName = document.getElementById('sourceLangName');
+    var targetLangName = document.getElementById('targetLangName');
+    var sourceFlag = document.getElementById('sourceFlag');
+    var targetFlag = document.getElementById('targetFlag');
     var swapBtn = document.getElementById('swapBtn');
     var clearBtn = document.getElementById('clearBtn');
     var copyBtn = document.getElementById('copyBtn');
@@ -17,31 +21,53 @@
     var speakOutputBtn = document.getElementById('speakOutputBtn');
     var loader = document.getElementById('loader');
     var charCount = document.getElementById('charCount');
-    var detectedLangEl = document.getElementById('detectedLang');
-    var detectedLangName = document.getElementById('detectedLangName');
 
-    // Estado
-    var sourceLang = 'pt';
-    var targetLang = 'es';
+    // Voice overlay
+    var voiceOverlay = document.getElementById('voiceOverlay');
+    var interimText = document.getElementById('interimText');
+    var stopRecBtn = document.getElementById('stopRecBtn');
+
+    // Language modal
+    var langModal = document.getElementById('langModal');
+    var modalBackdrop = document.getElementById('modalBackdrop');
+    var modalTitle = document.getElementById('modalTitle');
+    var modalClose = document.getElementById('modalClose');
+    var langSearch = document.getElementById('langSearch');
+    var langList = document.getElementById('langList');
+
+    // Install
+    var installBanner = document.getElementById('installBanner');
+    var installBtn = document.getElementById('installBtn');
+    var dismissInstall = document.getElementById('dismissInstall');
+
+    // State
+    var sourceLang = localStorage.getItem('tradudtor_source') || 'es';
+    var targetLang = localStorage.getItem('tradudtor_target') || 'en';
     var debounceTimer = null;
     var lastInput = '';
     var isSwapped = false;
     var recognition = null;
     var isRecording = false;
+    var selectingFor = 'source'; // 'source' or 'target'
+    var deferredPrompt = null;
 
-    var LANG_NAMES = { pt: 'Portugués', es: 'Español' };
-    var PLACEHOLDERS = {
-        pt: 'Escreva ou cole o texto...',
-        es: 'Escribe o pega el texto...'
-    };
-    var LANG_CODES_SPEECH = { pt: 'pt-BR', es: 'es-ES' };
-
-    // --- Funciones de UI ---
+    // ========================
+    // UI Updates
+    // ========================
 
     function updateLangUI() {
-        sourceLangBtn.textContent = LANG_NAMES[sourceLang];
-        targetLangBtn.textContent = LANG_NAMES[targetLang];
-        inputText.placeholder = PLACEHOLDERS[sourceLang];
+        var src = getLang(sourceLang);
+        var tgt = getLang(targetLang);
+        if (src) {
+            sourceLangName.textContent = src.name;
+            sourceFlag.textContent = src.flag;
+        }
+        if (tgt) {
+            targetLangName.textContent = tgt.name;
+            targetFlag.textContent = tgt.flag;
+        }
+        localStorage.setItem('tradudtor_source', sourceLang);
+        localStorage.setItem('tradudtor_target', targetLang);
     }
 
     function showLoader(show) {
@@ -65,44 +91,38 @@
 
     function autoResize() {
         inputText.style.height = 'auto';
-        inputText.style.height = Math.max(140, inputText.scrollHeight) + 'px';
+        inputText.style.height = Math.max(120, inputText.scrollHeight) + 'px';
     }
 
     function updateCharCount() {
         charCount.textContent = inputText.value.length;
     }
 
-    // --- Traducción ---
+    // ========================
+    // Translation
+    // ========================
 
     function doTranslate() {
         var text = inputText.value.trim();
         if (!text) {
             setOutput('');
-            detectedLangEl.hidden = true;
             return;
         }
-
         if (text === lastInput) return;
         lastInput = text;
 
         showLoader(true);
 
-        Translator.translate(text, sourceLang, targetLang).then(function(result) {
-            setOutput(result.translatedText);
-
-            if (result.detectedLang) {
-                var detected = result.detectedLang;
-                if (LANG_NAMES[detected]) {
-                    detectedLangName.textContent = LANG_NAMES[detected];
-                    detectedLangEl.hidden = false;
-                }
-            }
-        }).catch(function(err) {
-            console.error('Translation error:', err);
-            setOutput('Error: No se pudo traducir. Verifica tu conexión a internet.');
-        }).finally(function() {
-            showLoader(false);
-        });
+        Translator.translate(text, sourceLang, targetLang)
+            .then(function(result) {
+                setOutput(result.translatedText);
+            })
+            .catch(function() {
+                setOutput('Error: No se pudo traducir. Verifica tu conexión.');
+            })
+            .finally(function() {
+                showLoader(false);
+            });
     }
 
     function scheduleTranslation() {
@@ -110,32 +130,19 @@
         debounceTimer = setTimeout(doTranslate, 400);
     }
 
-    // --- Auto-detección ---
-
-    function autoDetect(text) {
-        var detected = Translator.detectLanguage(text);
-        if (detected && detected !== sourceLang) {
-            sourceLang = detected;
-            targetLang = detected === 'pt' ? 'es' : 'pt';
-            updateLangUI();
-        }
-    }
-
-    // --- Eventos básicos ---
+    // ========================
+    // Input events
+    // ========================
 
     inputText.addEventListener('input', function() {
         updateCharCount();
         autoResize();
-
         var text = inputText.value.trim();
         if (!text) {
             setOutput('');
             lastInput = '';
-            detectedLangEl.hidden = true;
             return;
         }
-
-        autoDetect(text);
         scheduleTranslation();
     });
 
@@ -154,7 +161,6 @@
             updateCharCount();
             autoResize();
             setOutput('');
-            detectedLangEl.hidden = true;
             scheduleTranslation();
         }
     });
@@ -164,8 +170,7 @@
         lastInput = '';
         setOutput('');
         updateCharCount();
-        detectedLangEl.hidden = true;
-        inputText.style.height = '140px';
+        inputText.style.height = '120px';
         inputText.focus();
     });
 
@@ -175,10 +180,8 @@
 
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(function() {
-                copyBtn.classList.add('copied');
-                setTimeout(function() { copyBtn.classList.remove('copied'); }, 1500);
-            }).catch(function(e) {
-                console.error('Clipboard error:', e);
+                showCopied();
+            }).catch(function() {
                 fallbackCopy();
             });
         } else {
@@ -193,100 +196,179 @@
             sel.addRange(range);
             document.execCommand('copy');
             sel.removeAllRanges();
+            showCopied();
+        }
+
+        function showCopied() {
             copyBtn.classList.add('copied');
             setTimeout(function() { copyBtn.classList.remove('copied'); }, 1500);
         }
     });
 
-    // =============================================
-    // RECONOCIMIENTO DE VOZ (Speech-to-Text)
-    // =============================================
+    // ========================
+    // Language picker modal
+    // ========================
+
+    function openLangModal(forTarget) {
+        selectingFor = forTarget;
+        modalTitle.textContent = forTarget === 'source' ? 'Idioma de origen' : 'Idioma de destino';
+        langSearch.value = '';
+        renderLangList('');
+        langModal.hidden = false;
+        document.body.style.overflow = 'hidden';
+        setTimeout(function() { langSearch.focus(); }, 100);
+    }
+
+    function closeLangModal() {
+        langModal.hidden = true;
+        document.body.style.overflow = '';
+    }
+
+    function renderLangList(filter) {
+        var html = '';
+        var currentCode = selectingFor === 'source' ? sourceLang : targetLang;
+        var otherCode = selectingFor === 'source' ? targetLang : sourceLang;
+        var filterLower = filter.toLowerCase();
+
+        for (var i = 0; i < LANGUAGES.length; i++) {
+            var lang = LANGUAGES[i];
+            // Don't show the language already selected in the other slot
+            if (lang.code === otherCode) continue;
+
+            if (filterLower && lang.name.toLowerCase().indexOf(filterLower) === -1 && lang.code.indexOf(filterLower) === -1) {
+                continue;
+            }
+
+            var active = lang.code === currentCode ? ' modal__item--active' : '';
+            html += '<li class="modal__item' + active + '" data-code="' + lang.code + '">'
+                + '<span class="modal__item-flag">' + lang.flag + '</span>'
+                + '<span class="modal__item-name">' + lang.name + '</span>'
+                + (active ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' : '')
+                + '</li>';
+        }
+        langList.innerHTML = html;
+    }
+
+    sourceLangBtn.addEventListener('click', function() { openLangModal('source'); });
+    targetLangBtn.addEventListener('click', function() { openLangModal('target'); });
+    modalClose.addEventListener('click', closeLangModal);
+    modalBackdrop.addEventListener('click', closeLangModal);
+
+    langSearch.addEventListener('input', function() {
+        renderLangList(langSearch.value);
+    });
+
+    langList.addEventListener('click', function(e) {
+        var item = e.target.closest('.modal__item');
+        if (!item) return;
+        var code = item.getAttribute('data-code');
+        if (!code) return;
+
+        if (selectingFor === 'source') {
+            sourceLang = code;
+        } else {
+            targetLang = code;
+        }
+        updateLangUI();
+        closeLangModal();
+
+        // Re-translate if there's text
+        if (inputText.value.trim()) {
+            lastInput = '';
+            scheduleTranslation();
+        }
+    });
+
+    // Close modal on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !langModal.hidden) {
+            closeLangModal();
+        }
+    });
+
+    // ========================
+    // Speech Recognition (Voice Input)
+    // ========================
 
     var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
     if (!SpeechRecognitionAPI) {
-        console.warn('SpeechRecognition API no disponible');
-        micBtn.style.display = 'none';
+        micBtn.style.opacity = '0.3';
+        micBtn.style.pointerEvents = 'none';
     }
 
     micBtn.addEventListener('click', function() {
-        console.log('Mic button clicked. isRecording:', isRecording);
-
         if (!SpeechRecognitionAPI) {
             alert('Tu navegador no soporta reconocimiento de voz.\nPrueba con Google Chrome.');
             return;
         }
 
         if (isRecording) {
-            console.log('Stopping recognition...');
-            if (recognition) {
-                try { recognition.stop(); } catch(e) { console.error(e); }
-            }
+            stopRecording();
             return;
         }
 
-        console.log('Starting recognition for lang:', LANG_CODES_SPEECH[sourceLang]);
+        startRecording();
+    });
+
+    function startRecording() {
+        var srcLang = getLang(sourceLang);
+        var speechCode = srcLang ? srcLang.speech : sourceLang;
 
         var rec = new SpeechRecognitionAPI();
-        rec.lang = LANG_CODES_SPEECH[sourceLang];
+        rec.lang = speechCode;
         rec.interimResults = true;
-        rec.continuous = false;
+        rec.continuous = true;
         rec.maxAlternatives = 1;
 
         var textBefore = inputText.value;
+        var finalTranscript = '';
 
         rec.onstart = function() {
-            console.log('Recognition started');
             isRecording = true;
             recognition = rec;
             micBtn.classList.add('recording');
-        };
-
-        rec.onaudiostart = function() {
-            console.log('Audio capture started');
+            voiceOverlay.hidden = false;
+            interimText.textContent = '';
         };
 
         rec.onresult = function(event) {
-            console.log('Got result, results count:', event.results.length);
             var interim = '';
-            var final = '';
+            finalTranscript = '';
             for (var i = 0; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    final += event.results[i][0].transcript;
+                    finalTranscript += event.results[i][0].transcript;
                 } else {
                     interim += event.results[i][0].transcript;
                 }
             }
-            console.log('Final:', final, 'Interim:', interim);
-            inputText.value = textBefore + final + interim;
+            interimText.textContent = finalTranscript + interim;
+            inputText.value = textBefore + finalTranscript + interim;
             updateCharCount();
             autoResize();
         };
 
         rec.onerror = function(event) {
-            console.error('Recognition error:', event.error, event.message);
             isRecording = false;
             recognition = null;
             micBtn.classList.remove('recording');
+            voiceOverlay.hidden = true;
 
             if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
                 alert('Permiso de micrófono denegado.\nHabilítalo en la configuración del navegador.');
-            } else if (event.error === 'no-speech') {
-                // No se detectó voz, no mostrar error
-            } else if (event.error !== 'aborted') {
+            } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
                 alert('Error de micrófono: ' + event.error);
             }
         };
 
         rec.onend = function() {
-            console.log('Recognition ended');
             isRecording = false;
             recognition = null;
             micBtn.classList.remove('recording');
+            voiceOverlay.hidden = true;
 
             var text = inputText.value.trim();
             if (text) {
-                autoDetect(text);
                 lastInput = '';
                 scheduleTranslation();
             }
@@ -294,19 +376,26 @@
 
         try {
             rec.start();
-            console.log('rec.start() called successfully');
         } catch(e) {
-            console.error('Failed to start recognition:', e);
             alert('No se pudo iniciar el micrófono:\n' + e.message);
             isRecording = false;
             recognition = null;
             micBtn.classList.remove('recording');
+            voiceOverlay.hidden = true;
         }
-    });
+    }
 
-    // =============================================
-    // SÍNTESIS DE VOZ (Text-to-Speech)
-    // =============================================
+    function stopRecording() {
+        if (recognition) {
+            try { recognition.stop(); } catch(e) { /* ignore */ }
+        }
+    }
+
+    stopRecBtn.addEventListener('click', stopRecording);
+
+    // ========================
+    // Speech Synthesis (Text-to-Speech)
+    // ========================
 
     var synth = window.speechSynthesis || null;
     var voices = [];
@@ -314,93 +403,65 @@
     function loadVoices() {
         if (!synth) return;
         voices = synth.getVoices();
-        console.log('Voices loaded:', voices.length);
     }
 
     if (synth) {
         loadVoices();
-        // Chrome carga las voces de forma asíncrona
         if (synth.onvoiceschanged !== undefined) {
             synth.onvoiceschanged = loadVoices;
         }
-        // Intentar de nuevo después de un delay
         setTimeout(loadVoices, 500);
         setTimeout(loadVoices, 2000);
     } else {
-        console.warn('speechSynthesis no disponible');
         speakInputBtn.style.display = 'none';
         speakOutputBtn.style.display = 'none';
     }
 
-    function findVoice(lang) {
+    function findVoice(langCode) {
         if (voices.length === 0) loadVoices();
-        var langCode = LANG_CODES_SPEECH[lang] || lang;
-        var prefix = lang === 'pt' ? 'pt' : 'es';
+        var lang = getLang(langCode);
+        var speechCode = lang ? lang.speech : langCode;
+        var prefix = langCode;
 
-        // Buscar voz exacta primero
-        var v = null;
         for (var i = 0; i < voices.length; i++) {
-            if (voices[i].lang === langCode) { v = voices[i]; break; }
+            if (voices[i].lang === speechCode) return voices[i];
         }
-        if (v) return v;
-
-        // Buscar por prefijo
         for (var j = 0; j < voices.length; j++) {
-            if (voices[j].lang.indexOf(prefix) === 0) { v = voices[j]; break; }
+            if (voices[j].lang.indexOf(prefix) === 0) return voices[j];
         }
-        return v;
+        return null;
     }
 
-    function speak(text, lang, btn) {
-        console.log('speak() called. text length:', text.length, 'lang:', lang);
-        console.log('synth available:', !!synth);
+    function speak(text, langCode, btn) {
+        if (!synth || !text || !text.trim()) return;
 
-        if (!synth) {
-            alert('Tu navegador no soporta síntesis de voz.');
-            return;
-        }
-
-        if (!text || text.trim().length === 0) {
-            console.log('No text to speak');
-            return;
-        }
-
-        // IMPORTANTE: Cancelar cualquier reproducción previa
         synth.cancel();
 
+        var lang = getLang(langCode);
+        var speechCode = lang ? lang.speech : langCode;
+
         var utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = LANG_CODES_SPEECH[lang] || lang;
+        utterance.lang = speechCode;
         utterance.rate = 0.9;
         utterance.pitch = 1;
         utterance.volume = 1;
 
-        var voice = findVoice(lang);
-        if (voice) {
-            utterance.voice = voice;
-            console.log('Using voice:', voice.name, voice.lang);
-        } else {
-            console.log('No specific voice found, using default for lang:', utterance.lang);
-        }
+        var voice = findVoice(langCode);
+        if (voice) utterance.voice = voice;
 
         btn.classList.add('speaking');
 
-        utterance.onstart = function() {
-            console.log('TTS started speaking');
-        };
-
         utterance.onend = function() {
-            console.log('TTS finished speaking');
             btn.classList.remove('speaking');
             clearInterval(keepAlive);
         };
 
-        utterance.onerror = function(e) {
-            console.error('TTS error:', e.error);
+        utterance.onerror = function() {
             btn.classList.remove('speaking');
             clearInterval(keepAlive);
         };
 
-        // Workaround para Chrome: pausa después de ~15s
+        // Chrome workaround: pauses after ~15s
         var keepAlive = setInterval(function() {
             if (synth.speaking) {
                 synth.pause();
@@ -411,31 +472,80 @@
         }, 10000);
 
         synth.speak(utterance);
-        console.log('synth.speak() called. speaking:', synth.speaking, 'pending:', synth.pending);
     }
 
     speakInputBtn.addEventListener('click', function() {
-        console.log('Speak input clicked');
         var text = inputText.value.trim();
-        if (!text) {
-            alert('Escribe algo primero para poder escucharlo.');
-            return;
-        }
+        if (!text) return;
         speak(text, sourceLang, speakInputBtn);
     });
 
     speakOutputBtn.addEventListener('click', function() {
-        console.log('Speak output clicked');
         var text = outputText.textContent;
-        var placeholder = outputText.querySelector('.translator__placeholder');
-        if (!text || placeholder) {
-            return;
-        }
+        if (!text || outputText.querySelector('.translator__placeholder')) return;
         speak(text, targetLang, speakOutputBtn);
     });
 
-    // --- Inicialización ---
+    // ========================
+    // PWA Install prompt
+    // ========================
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show install banner if not dismissed before
+        if (!localStorage.getItem('tradudtor_dismissed_install')) {
+            installBanner.hidden = false;
+        }
+    });
+
+    installBtn.addEventListener('click', function() {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function() {
+            deferredPrompt = null;
+            installBanner.hidden = true;
+        });
+    });
+
+    dismissInstall.addEventListener('click', function() {
+        installBanner.hidden = true;
+        localStorage.setItem('tradudtor_dismissed_install', '1');
+    });
+
+    // ========================
+    // iOS install instructions
+    // ========================
+
+    function isIOS() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    function isInStandaloneMode() {
+        return window.matchMedia('(display-mode: standalone)').matches ||
+            window.navigator.standalone === true;
+    }
+
+    // Show iOS install hint after a few seconds
+    if (isIOS() && !isInStandaloneMode() && !localStorage.getItem('tradudtor_ios_hint')) {
+        setTimeout(function() {
+            var hint = document.createElement('div');
+            hint.className = 'ios-hint';
+            hint.innerHTML = 'Para instalar: toca <strong>Compartir</strong> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> y luego <strong>"Agregar a pantalla de inicio"</strong>';
+            hint.addEventListener('click', function() {
+                hint.remove();
+                localStorage.setItem('tradudtor_ios_hint', '1');
+            });
+            document.body.appendChild(hint);
+            setTimeout(function() { hint.remove(); }, 8000);
+        }, 3000);
+    }
+
+    // ========================
+    // Init
+    // ========================
+
     updateLangUI();
     updateCharCount();
-    console.log('App initialized. SpeechRecognition:', !!SpeechRecognitionAPI, 'SpeechSynthesis:', !!synth);
 })();

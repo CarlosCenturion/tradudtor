@@ -1,46 +1,48 @@
-const CACHE_NAME = 'tradudtor-v1';
-const STATIC_ASSETS = [
+var CACHE_NAME = 'tradudtor-v2';
+var STATIC_ASSETS = [
     'index.html',
     'css/styles.css',
-    'js/app.js',
+    'js/languages.js',
     'js/translator.js',
+    'js/app.js',
     'manifest.json',
     'icons/icon-192.png',
     'icons/icon-512.png'
 ];
 
-// Instalar: pre-cachear assets estáticos
-self.addEventListener('install', (event) => {
+// Install: pre-cache static assets
+self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(STATIC_ASSETS))
-            .then(() => self.skipWaiting())
+            .then(function(cache) { return cache.addAll(STATIC_ASSETS); })
+            .then(function() { return self.skipWaiting(); })
     );
 });
 
-// Activar: limpiar caches antiguos
-self.addEventListener('activate', (event) => {
+// Activate: clean old caches
+self.addEventListener('activate', function(event) {
     event.waitUntil(
         caches.keys()
-            .then((keys) => Promise.all(
-                keys
-                    .filter((key) => key !== CACHE_NAME)
-                    .map((key) => caches.delete(key))
-            ))
-            .then(() => self.clients.claim())
+            .then(function(keys) {
+                return Promise.all(
+                    keys.filter(function(key) { return key !== CACHE_NAME; })
+                        .map(function(key) { return caches.delete(key); })
+                );
+            })
+            .then(function() { return self.clients.claim(); })
     );
 });
 
-// Fetch: cache-first para assets, network-first para API
-self.addEventListener('fetch', (event) => {
-    const url = new URL(event.request.url);
+// Fetch: cache-first for assets, network-first for API
+self.addEventListener('fetch', function(event) {
+    var url = new URL(event.request.url);
 
-    // Para llamadas a la API de traducción: network-first
+    // API calls: network-first
     if (url.hostname.includes('googleapis.com') ||
         url.hostname.includes('google.com') ||
         url.hostname.includes('mymemory.translated.net')) {
         event.respondWith(
-            fetch(event.request).catch(() => {
+            fetch(event.request).catch(function() {
                 return new Response(
                     JSON.stringify({ error: 'Sin conexión' }),
                     { headers: { 'Content-Type': 'application/json' } }
@@ -50,14 +52,15 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Para todo lo demás: cache-first
+    // Static assets: cache-first
     event.respondWith(
-        caches.match(event.request).then((cached) => {
-            return cached || fetch(event.request).then((response) => {
-                // Cachear nuevos recursos estáticos
+        caches.match(event.request).then(function(cached) {
+            return cached || fetch(event.request).then(function(response) {
                 if (response.ok && event.request.method === 'GET') {
-                    const clone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+                    var clone = response.clone();
+                    caches.open(CACHE_NAME).then(function(cache) {
+                        cache.put(event.request, clone);
+                    });
                 }
                 return response;
             });

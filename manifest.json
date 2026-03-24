@@ -1,12 +1,13 @@
 {
-    "name": "Tradudtor - Traductor Portugués Español",
+    "name": "Tradudtor - Traductor de Voz Universal",
     "short_name": "Tradudtor",
-    "description": "Traductor Portugués ↔ Español rápido y gratuito",
+    "description": "Traductor multilenguaje con voz para Android e iPhone",
     "start_url": "index.html",
     "display": "standalone",
-    "background_color": "#f8fafc",
+    "background_color": "#f0f4f8",
     "theme_color": "#0d9488",
     "orientation": "portrait-primary",
+    "categories": ["utilities", "productivity"],
     "icons": [
         {
             "src": "icons/icon-192.png",
