@@ -287,7 +287,10 @@
     });
 
     // ========================
-    // Speech Recognition (Voice Input) - Improved
+    // Speech Recognition (Voice Input)
+    // Each session is independent (continuous=false).
+    // On session end, we auto-restart a NEW session.
+    // The final result of each session is appended once.
     // ========================
 
     var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
@@ -298,7 +301,10 @@
     var recTimerInterval = null;
     var recStartTime = 0;
     var stoppedByUser = false;
-    var accumulatedText = ''; // all finalized text from continuous listening
+    var textBeforeRec = '';        // text in input before recording started
+    var confirmedText = '';        // accumulated final text across all sessions
+    var currentInterim = '';       // interim text from current session only
+    var sessionHadFinal = false;   // did current session produce a final result?
 
     if (!SpeechRecognitionAPI) {
         micBtn.style.opacity = '0.3';
@@ -320,109 +326,13 @@
     });
 
     function startRecording() {
-        var srcLang = getLang(sourceLang);
-        var speechCode = srcLang ? srcLang.speech : sourceLang;
-
         stoppedByUser = false;
-        accumulatedText = '';
+        confirmedText = '';
+        currentInterim = '';
 
-        var textBefore = inputText.value;
-        if (textBefore && !textBefore.endsWith(' ')) {
-            textBefore += ' ';
-        }
-
-        function createRecognition() {
-            var rec = new SpeechRecognitionAPI();
-            rec.lang = speechCode;
-            rec.interimResults = true;
-            rec.continuous = true;
-            rec.maxAlternatives = 1;
-
-            rec.onstart = function() {
-                isRecording = true;
-                recognition = rec;
-                micBtn.classList.add('recording');
-                voiceOverlay.hidden = false;
-                voiceStatus.textContent = 'Escuchando...';
-                micRing.classList.add('active');
-            };
-
-            rec.onresult = function(event) {
-                var finalPart = '';
-                var interimPart = '';
-
-                for (var i = event.resultIndex; i < event.results.length; i++) {
-                    var transcript = event.results[i][0].transcript;
-                    if (event.results[i].isFinal) {
-                        finalPart += transcript;
-                    } else {
-                        interimPart += transcript;
-                    }
-                }
-
-                // Accumulate only new final results
-                if (finalPart) {
-                    accumulatedText += finalPart;
-                }
-
-                // Update overlay display
-                finalText.textContent = accumulatedText;
-                interimText.textContent = interimPart;
-
-                // Update input field
-                inputText.value = textBefore + accumulatedText + interimPart;
-                updateCharCount();
-                autoResize();
-
-                // Live translate as final results come in
-                if (finalPart) {
-                    lastInput = '';
-                    scheduleTranslation();
-                }
-
-                // Visual pulse when getting results
-                micRing.classList.add('pulse');
-                setTimeout(function() { micRing.classList.remove('pulse'); }, 300);
-            };
-
-            rec.onerror = function(event) {
-                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                    cleanupRecording();
-                    alert('Permiso de micrófono denegado.\nHabilítalo en la configuración del navegador.');
-                } else if (event.error === 'no-speech') {
-                    // No speech detected - will auto-restart via onend
-                    voiceStatus.textContent = 'No te escucho... habla más fuerte';
-                } else if (event.error === 'aborted') {
-                    // User stopped or page navigated
-                } else if (event.error === 'network') {
-                    cleanupRecording();
-                    alert('Error de red. Verifica tu conexión a internet.');
-                }
-            };
-
-            rec.onend = function() {
-                // Auto-restart if user didn't manually stop
-                if (!stoppedByUser && isRecording) {
-                    voiceStatus.textContent = 'Escuchando...';
-                    try {
-                        var newRec = createRecognition();
-                        newRec.start();
-                        return;
-                    } catch(e) {
-                        // Could not restart, fall through to cleanup
-                    }
-                }
-
-                cleanupRecording();
-
-                var text = inputText.value.trim();
-                if (text) {
-                    lastInput = '';
-                    scheduleTranslation();
-                }
-            };
-
-            return rec;
+        textBeforeRec = inputText.value;
+        if (textBeforeRec && !textBeforeRec.endsWith(' ')) {
+            textBeforeRec += ' ';
         }
 
         // Start timer
@@ -430,12 +340,114 @@
         updateTimer();
         recTimerInterval = setInterval(updateTimer, 1000);
 
-        // Reset overlay text
+        // Reset overlay
         finalText.textContent = '';
         interimText.textContent = '';
 
+        launchSession();
+    }
+
+    function launchSession() {
+        var srcLang = getLang(sourceLang);
+        var speechCode = srcLang ? srcLang.speech : sourceLang;
+
+        var rec = new SpeechRecognitionAPI();
+        rec.lang = speechCode;
+        rec.interimResults = true;
+        rec.continuous = false;   // KEY: single-utterance mode
+        rec.maxAlternatives = 1;
+
+        sessionHadFinal = false;
+        currentInterim = '';
+
+        rec.onstart = function() {
+            isRecording = true;
+            recognition = rec;
+            micBtn.classList.add('recording');
+            voiceOverlay.hidden = false;
+            voiceStatus.textContent = 'Escuchando...';
+            micRing.classList.add('active');
+        };
+
+        rec.onresult = function(event) {
+            // In continuous=false mode there is only one result slot (index 0).
+            // It starts as interim and eventually becomes isFinal.
+            var result = event.results[0];
+            var transcript = result[0].transcript;
+
+            if (result.isFinal) {
+                // This session's final answer — append to confirmed text
+                sessionHadFinal = true;
+                confirmedText += transcript + ' ';
+                currentInterim = '';
+
+                // Update displays
+                finalText.textContent = confirmedText;
+                interimText.textContent = '';
+                inputText.value = textBeforeRec + confirmedText;
+                updateCharCount();
+                autoResize();
+
+                // Translate immediately
+                lastInput = '';
+                scheduleTranslation();
+            } else {
+                // Interim — show but don't commit
+                currentInterim = transcript;
+                interimText.textContent = transcript;
+                inputText.value = textBeforeRec + confirmedText + transcript;
+                updateCharCount();
+                autoResize();
+            }
+
+            // Visual pulse
+            micRing.classList.add('pulse');
+            setTimeout(function() { micRing.classList.remove('pulse'); }, 300);
+        };
+
+        rec.onerror = function(event) {
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                cleanupRecording();
+                alert('Permiso de micrófono denegado.\nHabilítalo en la configuración del navegador.');
+            } else if (event.error === 'no-speech') {
+                voiceStatus.textContent = 'No te escucho... habla más fuerte';
+                // Will auto-restart via onend
+            } else if (event.error === 'network') {
+                cleanupRecording();
+                alert('Error de red. Verifica tu conexión.');
+            }
+            // 'aborted' = user stopped, handled by onend
+        };
+
+        rec.onend = function() {
+            // Clean up interim text that wasn't finalized
+            if (!sessionHadFinal && currentInterim) {
+                // Discard the interim, restore to confirmed only
+                currentInterim = '';
+                interimText.textContent = '';
+                inputText.value = textBeforeRec + confirmedText;
+                updateCharCount();
+                autoResize();
+            }
+
+            // Auto-restart a new session if user didn't stop
+            if (!stoppedByUser) {
+                try {
+                    launchSession();
+                    return;
+                } catch(e) { /* fall through */ }
+            }
+
+            cleanupRecording();
+
+            var text = inputText.value.trim();
+            if (text) {
+                lastInput = '';
+                scheduleTranslation();
+            }
+        };
+
         try {
-            var rec = createRecognition();
             rec.start();
         } catch(e) {
             alert('No se pudo iniciar el micrófono:\n' + e.message);
@@ -469,7 +481,6 @@
     }
 
     stopRecBtn.addEventListener('click', stopRecording);
-    // Also stop when tapping the overlay backdrop
     voiceOverlay.addEventListener('click', function(e) {
         if (e.target === voiceOverlay) stopRecording();
     });
