@@ -287,10 +287,18 @@
     });
 
     // ========================
-    // Speech Recognition (Voice Input)
+    // Speech Recognition (Voice Input) - Improved
     // ========================
 
     var SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+    var voiceStatus = document.getElementById('voiceStatus');
+    var voiceTimer = document.getElementById('voiceTimer');
+    var finalText = document.getElementById('finalText');
+    var micRing = document.getElementById('micRing');
+    var recTimerInterval = null;
+    var recStartTime = 0;
+    var stoppedByUser = false;
+    var accumulatedText = ''; // all finalized text from continuous listening
 
     if (!SpeechRecognitionAPI) {
         micBtn.style.opacity = '0.3';
@@ -315,77 +323,156 @@
         var srcLang = getLang(sourceLang);
         var speechCode = srcLang ? srcLang.speech : sourceLang;
 
-        var rec = new SpeechRecognitionAPI();
-        rec.lang = speechCode;
-        rec.interimResults = true;
-        rec.continuous = false;
-        rec.maxAlternatives = 1;
+        stoppedByUser = false;
+        accumulatedText = '';
 
         var textBefore = inputText.value;
+        if (textBefore && !textBefore.endsWith(' ')) {
+            textBefore += ' ';
+        }
 
-        rec.onstart = function() {
-            isRecording = true;
-            recognition = rec;
-            micBtn.classList.add('recording');
-            voiceOverlay.hidden = false;
-            interimText.textContent = '';
-        };
+        function createRecognition() {
+            var rec = new SpeechRecognitionAPI();
+            rec.lang = speechCode;
+            rec.interimResults = true;
+            rec.continuous = true;
+            rec.maxAlternatives = 1;
 
-        rec.onresult = function(event) {
-            var transcript = '';
-            for (var i = 0; i < event.results.length; i++) {
-                transcript += event.results[i][0].transcript;
-            }
-            interimText.textContent = transcript;
-            inputText.value = textBefore + transcript;
-            updateCharCount();
-            autoResize();
-        };
+            rec.onstart = function() {
+                isRecording = true;
+                recognition = rec;
+                micBtn.classList.add('recording');
+                voiceOverlay.hidden = false;
+                voiceStatus.textContent = 'Escuchando...';
+                micRing.classList.add('active');
+            };
 
-        rec.onerror = function(event) {
-            isRecording = false;
-            recognition = null;
-            micBtn.classList.remove('recording');
-            voiceOverlay.hidden = true;
+            rec.onresult = function(event) {
+                var finalPart = '';
+                var interimPart = '';
 
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                alert('Permiso de micrófono denegado.\nHabilítalo en la configuración del navegador.');
-            } else if (event.error !== 'no-speech' && event.error !== 'aborted') {
-                alert('Error de micrófono: ' + event.error);
-            }
-        };
+                for (var i = event.resultIndex; i < event.results.length; i++) {
+                    var transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalPart += transcript;
+                    } else {
+                        interimPart += transcript;
+                    }
+                }
 
-        rec.onend = function() {
-            isRecording = false;
-            recognition = null;
-            micBtn.classList.remove('recording');
-            voiceOverlay.hidden = true;
+                // Accumulate only new final results
+                if (finalPart) {
+                    accumulatedText += finalPart;
+                }
 
-            var text = inputText.value.trim();
-            if (text) {
-                lastInput = '';
-                scheduleTranslation();
-            }
-        };
+                // Update overlay display
+                finalText.textContent = accumulatedText;
+                interimText.textContent = interimPart;
+
+                // Update input field
+                inputText.value = textBefore + accumulatedText + interimPart;
+                updateCharCount();
+                autoResize();
+
+                // Live translate as final results come in
+                if (finalPart) {
+                    lastInput = '';
+                    scheduleTranslation();
+                }
+
+                // Visual pulse when getting results
+                micRing.classList.add('pulse');
+                setTimeout(function() { micRing.classList.remove('pulse'); }, 300);
+            };
+
+            rec.onerror = function(event) {
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    cleanupRecording();
+                    alert('Permiso de micrófono denegado.\nHabilítalo en la configuración del navegador.');
+                } else if (event.error === 'no-speech') {
+                    // No speech detected - will auto-restart via onend
+                    voiceStatus.textContent = 'No te escucho... habla más fuerte';
+                } else if (event.error === 'aborted') {
+                    // User stopped or page navigated
+                } else if (event.error === 'network') {
+                    cleanupRecording();
+                    alert('Error de red. Verifica tu conexión a internet.');
+                }
+            };
+
+            rec.onend = function() {
+                // Auto-restart if user didn't manually stop
+                if (!stoppedByUser && isRecording) {
+                    voiceStatus.textContent = 'Escuchando...';
+                    try {
+                        var newRec = createRecognition();
+                        newRec.start();
+                        return;
+                    } catch(e) {
+                        // Could not restart, fall through to cleanup
+                    }
+                }
+
+                cleanupRecording();
+
+                var text = inputText.value.trim();
+                if (text) {
+                    lastInput = '';
+                    scheduleTranslation();
+                }
+            };
+
+            return rec;
+        }
+
+        // Start timer
+        recStartTime = Date.now();
+        updateTimer();
+        recTimerInterval = setInterval(updateTimer, 1000);
+
+        // Reset overlay text
+        finalText.textContent = '';
+        interimText.textContent = '';
 
         try {
+            var rec = createRecognition();
             rec.start();
         } catch(e) {
             alert('No se pudo iniciar el micrófono:\n' + e.message);
-            isRecording = false;
-            recognition = null;
-            micBtn.classList.remove('recording');
-            voiceOverlay.hidden = true;
+            cleanupRecording();
         }
     }
 
     function stopRecording() {
+        stoppedByUser = true;
         if (recognition) {
             try { recognition.stop(); } catch(e) { /* ignore */ }
         }
+        cleanupRecording();
+    }
+
+    function cleanupRecording() {
+        isRecording = false;
+        recognition = null;
+        micBtn.classList.remove('recording');
+        voiceOverlay.hidden = true;
+        micRing.classList.remove('active', 'pulse');
+        clearInterval(recTimerInterval);
+        recTimerInterval = null;
+    }
+
+    function updateTimer() {
+        var elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+        var min = Math.floor(elapsed / 60);
+        var sec = elapsed % 60;
+        voiceTimer.textContent = min + ':' + (sec < 10 ? '0' : '') + sec;
     }
 
     stopRecBtn.addEventListener('click', stopRecording);
+    // Also stop when tapping the overlay backdrop
+    voiceOverlay.addEventListener('click', function(e) {
+        if (e.target === voiceOverlay) stopRecording();
+    });
 
     // ========================
     // Speech Synthesis (Text-to-Speech)

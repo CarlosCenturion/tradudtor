@@ -108,14 +108,23 @@
         <!-- Voice recording overlay -->
         <div class="voice-overlay" id="voiceOverlay" hidden>
             <div class="voice-overlay__content">
-                <div class="voice-overlay__waves">
-                    <span></span><span></span><span></span><span></span><span></span>
+                <div class="voice-overlay__mic-ring" id="micRing">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+                        <path d="M19 10v2a7 7 0 01-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                    </svg>
                 </div>
-                <p class="voice-overlay__text">Escuchando...</p>
-                <p class="voice-overlay__interim" id="interimText"></p>
+                <p class="voice-overlay__text" id="voiceStatus">Escuchando...</p>
+                <p class="voice-overlay__timer" id="voiceTimer">0:00</p>
+                <div class="voice-overlay__transcript">
+                    <span class="voice-overlay__final" id="finalText"></span>
+                    <span class="voice-overlay__interim" id="interimText"></span>
+                </div>
                 <button class="voice-overlay__stop" id="stopRecBtn">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                    Detener
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                    Toca para detener
                 </button>
             </div>
         </div>
