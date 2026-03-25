@@ -1,5 +1,5 @@
 /**
- * Tradudtor - Motor de traducción multilenguaje
+ * Toki - Motor de traducción multilenguaje
  */
 var Translator = (function() {
     /**

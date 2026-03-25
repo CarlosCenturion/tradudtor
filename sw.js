@@ -1,4 +1,4 @@
-var CACHE_NAME = 'tradudtor-v2';
+var CACHE_NAME = 'toki-v1';
 var STATIC_ASSETS = [
     'index.html',
     'css/styles.css',

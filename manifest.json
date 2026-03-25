@@ -1,6 +1,6 @@
 {
-    "name": "Tradudtor - Traductor de Voz Universal",
-    "short_name": "Tradudtor",
+    "name": "Toki - Traductor de Voz Universal",
+    "short_name": "Toki",
     "description": "Traductor multilenguaje con voz para Android e iPhone",
     "start_url": "index.html",
     "display": "standalone",

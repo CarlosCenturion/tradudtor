@@ -1,5 +1,5 @@
 /**
- * Tradudtor - Lógica de UI principal
+ * Toki - Lógica de UI principal
  */
 (function() {
     'use strict';
@@ -41,8 +41,8 @@
     var dismissInstall = document.getElementById('dismissInstall');
 
     // State
-    var sourceLang = localStorage.getItem('tradudtor_source') || 'es';
-    var targetLang = localStorage.getItem('tradudtor_target') || 'en';
+    var sourceLang = localStorage.getItem('toki_source') || 'es';
+    var targetLang = localStorage.getItem('toki_target') || 'en';
     var debounceTimer = null;
     var lastInput = '';
     var isSwapped = false;
@@ -66,8 +66,8 @@
             targetLangName.textContent = tgt.name;
             targetFlag.textContent = tgt.flag;
         }
-        localStorage.setItem('tradudtor_source', sourceLang);
-        localStorage.setItem('tradudtor_target', targetLang);
+        localStorage.setItem('toki_source', sourceLang);
+        localStorage.setItem('toki_target', targetLang);
     }
 
     function showLoader(show) {
@@ -586,7 +586,7 @@
         e.preventDefault();
         deferredPrompt = e;
         // Show install banner if not dismissed before
-        if (!localStorage.getItem('tradudtor_dismissed_install')) {
+        if (!localStorage.getItem('toki_dismissed_install')) {
             installBanner.hidden = false;
         }
     });
@@ -602,7 +602,7 @@
 
     dismissInstall.addEventListener('click', function() {
         installBanner.hidden = true;
-        localStorage.setItem('tradudtor_dismissed_install', '1');
+        localStorage.setItem('toki_dismissed_install', '1');
     });
 
     // ========================
@@ -620,14 +620,14 @@
     }
 
     // Show iOS install hint after a few seconds
-    if (isIOS() && !isInStandaloneMode() && !localStorage.getItem('tradudtor_ios_hint')) {
+    if (isIOS() && !isInStandaloneMode() && !localStorage.getItem('toki_ios_hint')) {
         setTimeout(function() {
             var hint = document.createElement('div');
             hint.className = 'ios-hint';
             hint.innerHTML = 'Para instalar: toca <strong>Compartir</strong> <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg> y luego <strong>"Agregar a pantalla de inicio"</strong>';
             hint.addEventListener('click', function() {
                 hint.remove();
-                localStorage.setItem('tradudtor_ios_hint', '1');
+                localStorage.setItem('toki_ios_hint', '1');
             });
             document.body.appendChild(hint);
             setTimeout(function() { hint.remove(); }, 8000);

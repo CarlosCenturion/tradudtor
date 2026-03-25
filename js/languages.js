@@ -1,5 +1,5 @@
 /**
- * Tradudtor - Language definitions
+ * Toki - Language definitions
  */
 var LANGUAGES = [
     { code: 'es', name: 'Español', flag: '🇪🇸', speech: 'es-ES' },
