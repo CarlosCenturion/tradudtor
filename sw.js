@@ -1,4 +1,4 @@
-var CACHE_NAME = 'toki-v1';
+var CACHE_NAME = 'toki-v2';
 var STATIC_ASSETS = [
     'index.html',
     'css/styles.css',
@@ -7,7 +7,8 @@ var STATIC_ASSETS = [
     'js/app.js',
     'manifest.json',
     'icons/icon-192.png',
-    'icons/icon-512.png'
+    'icons/icon-512.png',
+    'images/mascot.png'
 ];
 
 // Install: pre-cache static assets

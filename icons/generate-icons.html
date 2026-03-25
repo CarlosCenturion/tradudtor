@@ -1,42 +1,70 @@
 <!DOCTYPE html>
 <html>
-<head><title>Generar íconos</title></head>
+<head>
+    <meta charset="UTF-8">
+    <title>Generate Toki Icons</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 40px; background: #f0f4f8; }
+        canvas { border: 1px solid #ccc; margin: 10px; background: #fff; }
+        h2 { margin-top: 30px; }
+        a { display: inline-block; margin: 10px; padding: 12px 24px; background: #4A9FE5; color: #fff; text-decoration: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .preview { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; align-items: flex-end; }
+        .preview > div { text-align: center; }
+    </style>
+</head>
 <body>
-<p>Haz clic en cada botón y guarda la imagen descargada en la carpeta icons/</p>
-<canvas id="c192" width="192" height="192"></canvas>
-<button onclick="download(192)">Descargar icon-192.png</button>
-<br><br>
-<canvas id="c512" width="512" height="512"></canvas>
-<button onclick="download(512)">Descargar icon-512.png</button>
-<script>
-function draw(size) {
-    const canvas = document.getElementById('c' + size);
-    const ctx = canvas.getContext('2d');
-    // Fondo
-    ctx.fillStyle = '#0d9488';
-    ctx.beginPath();
-    ctx.roundRect(0, 0, size, size, size * 0.15);
-    ctx.fill();
-    // Letra T
-    ctx.fillStyle = '#ffffff';
-    ctx.font = `bold ${size * 0.55}px -apple-system, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('T', size / 2, size / 2);
-    // Flechas pequeñas
-    ctx.font = `${size * 0.15}px sans-serif`;
-    ctx.fillText('↔', size / 2, size * 0.82);
-}
-function download(size) {
-    draw(size);
-    const canvas = document.getElementById('c' + size);
-    const a = document.createElement('a');
-    a.download = 'icon-' + size + '.png';
-    a.href = canvas.toDataURL('image/png');
-    a.click();
-}
-draw(192);
-draw(512);
-</script>
+    <h1>Toki Icon Generator</h1>
+    <p>Los iconos se generan de la mascota. Click para descargar y reemplazar en la carpeta icons/</p>
+
+    <div class="preview">
+        <div>
+            <h2>512x512</h2>
+            <canvas id="c512" width="512" height="512"></canvas><br>
+            <a id="dl512" download="icon-512.png">Descargar 512x512</a>
+        </div>
+        <div>
+            <h2>192x192</h2>
+            <canvas id="c192" width="192" height="192"></canvas><br>
+            <a id="dl192" download="icon-192.png">Descargar 192x192</a>
+        </div>
+    </div>
+
+    <script>
+        var img = new Image();
+        img.onload = function() {
+            // Crop center-bottom to focus on the bird character
+            var imgW = img.width;
+            var imgH = img.height;
+            var cropSize = Math.min(imgW, imgH) * 0.7;
+            var sx = (imgW - cropSize) / 2;
+            var sy = (imgH - cropSize) / 2 + cropSize * 0.15;
+
+            drawIcon('c512', 512, sx, sy, cropSize);
+            drawIcon('c192', 192, sx, sy, cropSize);
+        };
+        img.src = '../images/mascot.png';
+
+        function drawIcon(canvasId, size, sx, sy, sSize) {
+            var canvas = document.getElementById(canvasId);
+            var ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = '#4A9FE5';
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw cropped mascot
+            ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, size, size);
+
+            // Download link
+            var dlId = 'dl' + size;
+            document.getElementById(dlId).href = canvas.toDataURL('image/png');
+            document.getElementById(dlId).onclick = function() {
+                var a = document.createElement('a');
+                a.download = 'icon-' + size + '.png';
+                a.href = canvas.toDataURL('image/png');
+                a.click();
+            };
+        }
+    </script>
 </body>
 </html>

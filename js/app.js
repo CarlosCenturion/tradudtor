@@ -635,6 +635,26 @@
     }
 
     // ========================
+    // Splash screen (first visit only)
+    // ========================
+
+    var splashScreen = document.getElementById('splashScreen');
+    var splashDismiss = document.getElementById('splashDismiss');
+
+    // Skip splash for returning users (they already have language prefs saved)
+    if (localStorage.getItem('toki_splash_seen') || localStorage.getItem('toki_source')) {
+        if (splashScreen) splashScreen.hidden = true;
+    } else if (splashScreen && splashDismiss) {
+        splashDismiss.addEventListener('click', function() {
+            splashScreen.classList.add('splash--hiding');
+            localStorage.setItem('toki_splash_seen', '1');
+            setTimeout(function() {
+                splashScreen.hidden = true;
+            }, 400);
+        });
+    }
+
+    // ========================
     // Init
     // ========================
 

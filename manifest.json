@@ -4,8 +4,8 @@
     "description": "Traductor multilenguaje con voz para Android e iPhone",
     "start_url": "index.html",
     "display": "standalone",
-    "background_color": "#f0f4f8",
-    "theme_color": "#0d9488",
+    "background_color": "#EAF2FB",
+    "theme_color": "#4A9FE5",
     "orientation": "portrait-primary",
     "categories": ["utilities", "productivity"],
     "icons": [

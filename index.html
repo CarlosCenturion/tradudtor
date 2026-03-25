@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
     <meta name="description" content="Toki - Traductor de voz multilenguaje para Android e iPhone">
-    <meta name="theme-color" content="#0d9488">
+    <meta name="theme-color" content="#4A9FE5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Toki">
@@ -14,9 +14,24 @@
     <title>Toki</title>
 </head>
 <body>
+    <!-- Splash screen (first visit only) -->
+    <div class="splash" id="splashScreen">
+        <div class="splash__content">
+            <img class="splash__image" src="images/mascot.png" alt="Toki - Traductor de voz universal">
+            <h2 class="splash__title">Toki</h2>
+            <p class="splash__desc">Traduce con tu voz a más de 40 idiomas</p>
+            <button class="splash__btn" id="splashDismiss">Comenzar</button>
+        </div>
+    </div>
+
     <header class="header">
-        <h1 class="header__title">Toki</h1>
-        <p class="header__subtitle">Traductor de voz universal</p>
+        <div class="header__brand">
+            <img class="header__logo" src="images/mascot.png" alt="Toki" width="38" height="38">
+            <div>
+                <h1 class="header__title">Toki</h1>
+                <p class="header__subtitle">Traductor de voz universal</p>
+            </div>
+        </div>
     </header>
 
     <main class="main">
